@@ -1,7 +1,12 @@
 var router = require("express").Router();
 const AccountController = require("../../controllers/accountController");
 
-router.route("/accounts").get(AccountController.getAcccounts);
+router
+  .route("/accounts")
+  .get(AccountController.getAcccounts)
+  .post(AccountController.newAccount);
+
+router.route("/accounts/login").post(AccountController.login);
 
 router.use(function(err, req, res, next) {
   if (err.name === "ValidationError") {
