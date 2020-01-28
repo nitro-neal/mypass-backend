@@ -21,8 +21,10 @@ var AccountSchema = new mongoose.Schema(
       match: [/\S+@\S+\.\S+/, "is invalid"],
       index: true
     },
+    role: String,
     hash: String,
-    salt: String
+    salt: String,
+    documents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Document" }]
   },
   { timestamps: true },
   { usePushEach: true }
@@ -63,6 +65,7 @@ AccountSchema.methods.toAuthJSON = function() {
   return {
     username: this.username,
     email: this.email,
+    role: this.role,
     token: this.generateJWT()
   };
 };

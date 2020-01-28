@@ -1,19 +1,17 @@
-var express = require("express"),
+let express = require("express"),
   bodyParser = require("body-parser"),
   session = require("express-session"),
   cors = require("cors"),
-  mongoose = require("mongoose");
+  mongoose = require("mongoose"),
+  grid = require("gridfs-stream");
 
-// load .env files
+// Load .env files
 require("dotenv").config();
-var app = express();
 
-app.use(cors());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-
+const app = express();
 app.use(express.static(__dirname + "/public"));
-
+app.use(bodyParser.json());
+app.use(cors());
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -23,13 +21,21 @@ app.use(
   })
 );
 
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  useCreateIndex: true
+const mongoURI = process.env.MONGODB_URI;
+const conn = mongoose.createConnection(mongoURI);
+mongoose.connect(mongoURI, { useNewUrlParser: true });
+
+let gfs;
+
+conn.once("open", () => {
+  gfs = grid(conn.db, mongoose.mongo);
+  gfs.collection("uploads");
+  console.log("Connection Successful");
+  app.set("gfs", gfs);
 });
 
 require("./models/Account");
+require("./models/Document");
 require("./config/passport");
 
 app.use(require("./routes"));

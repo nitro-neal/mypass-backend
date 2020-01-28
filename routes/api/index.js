@@ -1,5 +1,7 @@
-var router = require("express").Router();
+const router = require("express").Router();
 const AccountController = require("../../controllers/accountController");
+const auth = require("../auth");
+const upload = require("../upload");
 
 router
   .route("/accounts")
@@ -7,6 +9,19 @@ router
   .post(AccountController.newAccount);
 
 router.route("/accounts/login").post(AccountController.login);
+
+router
+  .route("/accounts/documents/")
+  .get(auth.required, AccountController.getDocuments)
+  .post(
+    [upload.single("img"), auth.required],
+    AccountController.uploadDocument
+  );
+
+// TODO: Add auth jwt to parameter for authorized images
+router
+  .route("/accounts/documents/:filename")
+  .get(AccountController.getDocument);
 
 router.use(function(err, req, res, next) {
   if (err.name === "ValidationError") {
