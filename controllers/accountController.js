@@ -3,6 +3,11 @@ const Document = require("../models/Document");
 const passport = require("passport");
 
 module.exports = {
+  getAcccount: async (req, res, next) => {
+    const account = await Account.findById(req.payload.id);
+    res.status(200).json({ account: account.toAuthJSON() });
+  },
+
   getAcccounts: async (req, res, next) => {
     const accounts = await Account.find({});
     res.status(200).json(accounts);
@@ -57,7 +62,7 @@ module.exports = {
     account.documents.push(document);
     await account.save();
 
-    res.status(200).json({ file: req.file });
+    res.status(200).json({ file: req.file.filename });
   },
 
   getDocuments: async (req, res, next) => {

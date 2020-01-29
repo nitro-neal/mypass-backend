@@ -3,6 +3,8 @@ const AccountController = require("../../controllers/accountController");
 const auth = require("../auth");
 const upload = require("../upload");
 
+router.route("/account").get(auth.required, AccountController.getAcccount);
+
 router
   .route("/accounts")
   .get(AccountController.getAcccounts)
