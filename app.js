@@ -1,14 +1,21 @@
-let express = require("express"),
-  bodyParser = require("body-parser"),
-  session = require("express-session"),
-  cors = require("cors"),
-  mongoose = require("mongoose"),
-  grid = require("gridfs-stream");
-
 // Load .env files
 require("dotenv").config();
 
+let MongoDbClient = require("./database/mongodb/MongoDbClient");
+let express = require("express");
+let bodyParser = require("body-parser");
+let session = require("express-session");
+let cors = require("cors");
+let router = require("./routes");
+let common = require("./common/common");
+require("./config/passport");
+
 const app = express();
+
+// Set DB Client.
+let dbClient = new MongoDbClient(app);
+common.dbClient = dbClient;
+
 app.use(express.static(__dirname + "/public"));
 app.use(bodyParser.json());
 app.use(cors());
@@ -21,24 +28,7 @@ app.use(
   })
 );
 
-const mongoURI = process.env.MONGODB_URI;
-const conn = mongoose.createConnection(mongoURI);
-mongoose.connect(mongoURI, { useNewUrlParser: true });
-
-let gfs;
-
-conn.once("open", () => {
-  gfs = grid(conn.db, mongoose.mongo);
-  gfs.collection("uploads");
-  console.log("Connection Successful");
-  app.set("gfs", gfs);
-});
-
-require("./models/Account");
-require("./models/Document");
-require("./config/passport");
-
-app.use(require("./routes"));
+app.use(router);
 
 // error handler
 app.use(function(err, req, res, next) {

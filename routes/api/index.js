@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const AccountController = require("../../controllers/accountController");
-const auth = require("../auth");
-const upload = require("../upload");
+const auth = require("../middleware/auth");
+const upload = require("../middleware/upload");
 
 router.route("/account").get(auth.required, AccountController.getAcccount);
 

@@ -1,15 +1,14 @@
-const Account = require("../models/Account");
-const Document = require("../models/Document");
+const common = require("../common/common");
 const passport = require("passport");
 
 module.exports = {
   getAcccount: async (req, res, next) => {
-    const account = await Account.findById(req.payload.id);
+    const account = await common.dbClient.getAccountById(req);
     res.status(200).json({ account: account.toAuthJSON() });
   },
 
   getAcccounts: async (req, res, next) => {
-    const accounts = await Account.find({});
+    const accounts = await common.dbClient.getAllAccounts();
     res.status(200).json(accounts);
   },
 
@@ -19,13 +18,7 @@ module.exports = {
       role = "agent";
     }
 
-    const newAccount = new Account();
-    newAccount.username = req.body.account.username;
-    newAccount.email = req.body.account.email;
-    newAccount.role = role;
-    newAccount.setPassword(req.body.account.password);
-
-    const account = await newAccount.save();
+    const account = await common.dbClient.createAccount(req, role);
     return res.status(201).json({ account: account.toAuthJSON() });
   },
 
@@ -53,52 +46,17 @@ module.exports = {
   },
 
   uploadDocument: async (req, res, next) => {
-    const newDocument = new Document();
-    newDocument.name = req.file.originalName;
-    newDocument.url = req.file.filename;
-    const document = await newDocument.save();
-
-    const account = await Account.findById(req.payload.id);
-    account.documents.push(document);
-    await account.save();
-
-    res.status(200).json({ file: req.file.filename });
+    const document = await common.dbClient.uploadDocument(req);
+    res.status(200).json({ file: document.url });
   },
 
   getDocuments: async (req, res, next) => {
-    const account = await Account.findById(req.payload.id);
-
-    let documents = await Document.find({
-      _id: {
-        $in: account.documents
-      }
-    });
+    const documents = await common.dbClient.getDocuments(req);
 
     res.status(200).json({ documents: documents });
   },
 
   getDocument: async (req, res, next) => {
-    let gfs = req.app.get("gfs");
-
-    gfs.files.findOne({ filename: req.params.filename }, (err, file) => {
-      if (!file || file.length === 0) {
-        return res.status(404).json({
-          err: "No file exists"
-        });
-      }
-
-      if (
-        file.contentType === "image/jpeg" ||
-        file.contentType === "image/png"
-      ) {
-        // Read output to browser
-        const readstream = gfs.createReadStream(file.filename);
-        readstream.pipe(res);
-      } else {
-        res.status(404).json({
-          err: "Not an image"
-        });
-      }
-    });
+    return await common.dbClient.getDocument(req, res);
   }
 };
