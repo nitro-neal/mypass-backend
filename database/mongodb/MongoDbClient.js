@@ -41,14 +41,24 @@ class MongoDbClient {
   }
 
   async uploadDocument(req) {
+    const account = await Account.findById(req.payload.id);
+
     const newDocument = new Document();
     newDocument.name = req.file.originalName;
     newDocument.url = req.file.filename;
+    newDocument.uploadedBy = account;
     const document = await newDocument.save();
 
-    const account = await Account.findById(req.payload.id);
-    account.documents.push(document);
-    await account.save();
+    if (req.body.uploadForAccountId !== undefined) {
+      const uploadForAccount = await Account.findById(
+        req.body.uploadForAccountId
+      );
+      uploadForAccount.documents.push(document);
+      await uploadForAccount.save();
+    } else {
+      account.documents.push(document);
+      await account.save();
+    }
 
     return document;
   }

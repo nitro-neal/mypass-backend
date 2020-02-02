@@ -7,7 +7,7 @@ router.route("/account").get(auth.required, AccountController.getAcccount);
 
 router
   .route("/accounts")
-  .get(AccountController.getAcccounts)
+  .get(auth.required, AccountController.getAcccounts)
   .post(AccountController.newAccount);
 
 router.route("/accounts/login").post(AccountController.login);
