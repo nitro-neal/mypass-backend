@@ -22,6 +22,8 @@ var AccountSchema = new mongoose.Schema(
       index: true
     },
     role: String,
+    didAddress: String,
+    didPrivateKey: String,
     hash: String,
     salt: String,
     documents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Document" }]
@@ -66,6 +68,7 @@ AccountSchema.methods.toAuthJSON = function() {
     username: this.username,
     email: this.email,
     role: this.role,
+    didAddress: this.didAddress,
     token: this.generateJWT()
   };
 };

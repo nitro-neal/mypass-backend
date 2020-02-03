@@ -2,6 +2,7 @@
 require("dotenv").config();
 
 let MongoDbClient = require("./database/mongodb/MongoDbClient");
+let UportClient = require("./blockchain/UportClient");
 let express = require("express");
 let bodyParser = require("body-parser");
 let session = require("express-session");
@@ -14,7 +15,10 @@ const app = express();
 
 // Set DB Client.
 let dbClient = new MongoDbClient(app);
+let blockchainClient = new UportClient();
+
 common.dbClient = dbClient;
+common.blockchainClient = blockchainClient;
 
 app.use(express.static(__dirname + "/public"));
 app.use(bodyParser.json());

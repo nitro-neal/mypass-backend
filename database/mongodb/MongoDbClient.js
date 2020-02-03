@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
 const grid = require("gridfs-stream");
+const { imageHash } = require("image-hash");
 
 const Account = require("./models/Account");
 const Document = require("./models/Document");
+const VerifiableCredential = require("./models/VerifiableCredential");
 
 class MongoDbClient {
   constructor(app) {
@@ -29,15 +31,47 @@ class MongoDbClient {
     return accounts;
   }
 
-  async createAccount(req, role) {
+  async createAccount(req, role, did) {
     const newAccount = new Account();
     newAccount.username = req.body.account.username;
     newAccount.email = req.body.account.email;
     newAccount.role = role;
+    newAccount.didAddress = did.address;
+    newAccount.didPrivateKey = did.privateKey;
     newAccount.setPassword(req.body.account.password);
 
     const account = await newAccount.save();
     return account;
+  }
+
+  async createVerifiableCredential(vcJwt, issuer, document) {
+    const newVC = new VerifiableCredential();
+    newVC.vcJwt = vcJwt;
+    newVC.issuer = issuer;
+    newVC.document = document;
+    newVC.documentDid = document.did;
+    const vc = await newVC.save();
+
+    document.vcJwt = vcJwt;
+    await document.save();
+
+    return vc;
+  }
+
+  async generateHash(documentUrl) {
+    return new Promise((resolve, reject) => {
+      // Hash from URL
+      let localUrl =
+        "http://localhost:" +
+        (process.env.PORT || 5000) +
+        "/api/accounts/documents/" +
+        documentUrl;
+
+      imageHash(localUrl, 16, true, (error, data) => {
+        if (error) throw error;
+        resolve(data);
+      });
+    });
   }
 
   async uploadDocument(req) {
@@ -48,6 +82,10 @@ class MongoDbClient {
     newDocument.url = req.file.filename;
     newDocument.uploadedBy = account;
     const document = await newDocument.save();
+
+    const hash = await this.generateHash(document.url);
+    document.hash = hash;
+    await document.save();
 
     if (req.body.uploadForAccountId !== undefined) {
       const uploadForAccount = await Account.findById(

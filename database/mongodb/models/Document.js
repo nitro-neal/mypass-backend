@@ -5,6 +5,8 @@ var DocumentSchema = new mongoose.Schema({
   url: String,
   notarized: Boolean,
   did: String,
+  hash: String,
+  vcJwt: String,
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Account" }
 });
 
