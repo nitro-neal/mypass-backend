@@ -13,8 +13,8 @@ require("./config/passport");
 
 const app = express();
 
-// Set DB Client.
-let dbClient = new MongoDbClient(app);
+// Set Up Clients.
+let dbClient = new MongoDbClient();
 let blockchainClient = new UportClient();
 
 common.dbClient = dbClient;

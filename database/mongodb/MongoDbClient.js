@@ -5,9 +5,10 @@ const { imageHash } = require("image-hash");
 const Account = require("./models/Account");
 const Document = require("./models/Document");
 const VerifiableCredential = require("./models/VerifiableCredential");
+const VerifiablePresentation = require("./models/VerifiablePresentation");
 
 class MongoDbClient {
-  constructor(app) {
+  constructor() {
     this.mongoURI = process.env.MONGODB_URI;
     this.conn = mongoose.createConnection(this.mongoURI);
     mongoose.connect(this.mongoURI, { useNewUrlParser: true });
@@ -31,11 +32,11 @@ class MongoDbClient {
     return accounts;
   }
 
-  async createAccount(req, role, did) {
+  async createAccount(req, did) {
     const newAccount = new Account();
     newAccount.username = req.body.account.username;
     newAccount.email = req.body.account.email;
-    newAccount.role = role;
+    newAccount.role = req.body.account.role;
     newAccount.didAddress = did.address;
     newAccount.didPrivateKey = did.privateKey;
     newAccount.setPassword(req.body.account.password);
@@ -44,9 +45,10 @@ class MongoDbClient {
     return account;
   }
 
-  async createVerifiableCredential(vcJwt, issuer, document) {
+  async createVerifiableCredential(vcJwt, verifiedVC, issuer, document) {
     const newVC = new VerifiableCredential();
     newVC.vcJwt = vcJwt;
+    newVC.verifiedVC = verifiedVC;
     newVC.issuer = issuer;
     newVC.document = document;
     newVC.documentDid = document.did;
@@ -58,13 +60,29 @@ class MongoDbClient {
     return vc;
   }
 
+  async createVerifiablePresentation(vpJwt, verifiedVP, issuer, document) {
+    const newVP = new VerifiablePresentation();
+    newVP.vpJwt = vpJwt;
+    newVP.verifiedVP = verifiedVP;
+    newVP.issuer = issuer;
+    newVP.document = document;
+    newVP.documentDid = document.did;
+    const vp = await newVP.save();
+
+    document.vpJwt = vpJwt;
+    await document.save();
+
+    return vp;
+  }
+
+  // TODO: Add this to db helper class
   async generateHash(documentUrl) {
     return new Promise((resolve, reject) => {
       // Hash from URL
       let localUrl =
         "http://localhost:" +
         (process.env.PORT || 5000) +
-        "/api/accounts/documents/" +
+        "/api/documents/" +
         documentUrl;
 
       imageHash(localUrl, 16, true, (error, data) => {

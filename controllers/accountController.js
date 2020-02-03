@@ -13,13 +13,8 @@ module.exports = {
   },
 
   newAccount: async (req, res, next) => {
-    let role = "owner";
-    if (req.body.account.role === "agent") {
-      role = "agent";
-    }
-
     const did = await common.blockchainClient.createNewDID();
-    const account = await common.dbClient.createAccount(req, role, did);
+    const account = await common.dbClient.createAccount(req, did);
     return res.status(201).json({ account: account.toAuthJSON() });
   },
 
@@ -44,42 +39,5 @@ module.exports = {
         return res.status(422).json(info);
       }
     })(req, res, next);
-  },
-
-  uploadDocument: async (req, res, next) => {
-    const document = await common.dbClient.uploadDocument(req);
-
-    // TODO: Should creating a VC be a different endpoint?
-    if (req.body.uploadForAccountId !== undefined) {
-      const account = await common.dbClient.getAccountById(req);
-
-      const issueTime = 1562950282;
-
-      const vcJwt = await common.blockchainClient.createVC(
-        account.didAddress,
-        account.didPrivateKey,
-        document.did,
-        issueTime,
-        document.hash
-      );
-
-      await common.dbClient.createVerifiableCredential(
-        vcJwt,
-        account,
-        document
-      );
-    }
-
-    res.status(200).json({ file: document.url });
-  },
-
-  getDocuments: async (req, res, next) => {
-    const documents = await common.dbClient.getDocuments(req);
-
-    res.status(200).json({ documents: documents });
-  },
-
-  getDocument: async (req, res, next) => {
-    return await common.dbClient.getDocument(req, res);
   }
 };
