@@ -1,5 +1,4 @@
 const common = require("../common/common");
-const passport = require("passport");
 
 module.exports = {
   uploadDocument: async (req, res, next) => {
@@ -29,8 +28,10 @@ module.exports = {
       const verifiedVC = await common.blockchainClient.verifyVC(vcJwt);
       const verifiedVP = await common.blockchainClient.verifyVP(vpJwt);
 
-      console.log("VERIFIED");
+      console.log("\n\nVERIFIED VC:\n");
       console.log(verifiedVC);
+
+      console.log("\n\nVERIFIED VP:\n");
       console.log(verifiedVP);
 
       await common.dbClient.createVerifiableCredential(

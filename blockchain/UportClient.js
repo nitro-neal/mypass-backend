@@ -51,6 +51,12 @@ class UportClient {
           driversLicense: {
             type: "TexasDriversLicense",
             hash: hash
+          },
+          issuerAffidavit: {
+            message: "I affirm this document is true"
+          },
+          ownerAffidavit: {
+            message: "I affirm this document is true"
           }
         }
       }

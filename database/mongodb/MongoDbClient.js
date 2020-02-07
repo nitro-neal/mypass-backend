@@ -4,24 +4,48 @@ const { imageHash } = require("image-hash");
 
 const Account = require("./models/Account");
 const Document = require("./models/Document");
+const Role = require("./models/Role");
+const Permission = require("./models/Permission");
+const RolePermissionTable = require("./models/RolePermissionTable");
 const VerifiableCredential = require("./models/VerifiableCredential");
 const VerifiablePresentation = require("./models/VerifiablePresentation");
 
+let mongoDbOptions = {
+  useUnifiedTopology: true,
+  useNewUrlParser: true,
+  useCreateIndex: true
+};
+
 class MongoDbClient {
   constructor() {
+    this.cachedRolePermissionTable = undefined;
     this.mongoURI = process.env.MONGODB_URI;
-    this.conn = mongoose.createConnection(this.mongoURI);
-    mongoose.connect(this.mongoURI, { useNewUrlParser: true });
 
-    this.conn.once("open", () => {
-      this.gfs = grid(this.conn.db, mongoose.mongo);
+    this.fileConnection = mongoose.createConnection(
+      this.mongoURI,
+      mongoDbOptions
+    );
+
+    this.fileConnection.once("open", () => {
+      this.gfs = grid(this.fileConnection.db, mongoose.mongo);
       this.gfs.collection("uploads");
     });
 
-    this.Account = Account;
-    this.Document = Document;
+    mongoose
+      .connect(this.mongoURI, mongoDbOptions)
+      .then(this.updateRolePermissionsTableCache());
   }
 
+  // Cache
+  async updateRolePermissionsTableCache() {
+    this.cachedRolePermissionTable = await this.getLatestRoleLPermissionTable();
+  }
+
+  getCachedRolePermissionsTable() {
+    return this.cachedRolePermissionTable;
+  }
+
+  // Accounts
   async getAccountById(req) {
     const account = await Account.findById(req.payload.id);
     return account;
@@ -45,53 +69,7 @@ class MongoDbClient {
     return account;
   }
 
-  async createVerifiableCredential(vcJwt, verifiedVC, issuer, document) {
-    const newVC = new VerifiableCredential();
-    newVC.vcJwt = vcJwt;
-    newVC.verifiedVC = verifiedVC;
-    newVC.issuer = issuer;
-    newVC.document = document;
-    newVC.documentDid = document.did;
-    const vc = await newVC.save();
-
-    document.vcJwt = vcJwt;
-    await document.save();
-
-    return vc;
-  }
-
-  async createVerifiablePresentation(vpJwt, verifiedVP, issuer, document) {
-    const newVP = new VerifiablePresentation();
-    newVP.vpJwt = vpJwt;
-    newVP.verifiedVP = verifiedVP;
-    newVP.issuer = issuer;
-    newVP.document = document;
-    newVP.documentDid = document.did;
-    const vp = await newVP.save();
-
-    document.vpJwt = vpJwt;
-    await document.save();
-
-    return vp;
-  }
-
-  // TODO: Add this to db helper class
-  async generateHash(documentUrl) {
-    return new Promise((resolve, reject) => {
-      // Hash from URL
-      let localUrl =
-        "http://localhost:" +
-        (process.env.PORT || 5000) +
-        "/api/documents/" +
-        documentUrl;
-
-      imageHash(localUrl, 16, true, (error, data) => {
-        if (error) throw error;
-        resolve(data);
-      });
-    });
-  }
-
+  // Documents
   async uploadDocument(req) {
     const account = await Account.findById(req.payload.id);
 
@@ -150,6 +128,106 @@ class MongoDbClient {
           err: "Not an image"
         });
       }
+    });
+  }
+
+  // Admin - Roles
+  async getAllRoles() {
+    const roles = await Role.find({});
+    return roles;
+  }
+
+  async createRole(req) {
+    const newRole = new Role();
+    newRole.name = req.body.role.name;
+    const role = await newRole.save();
+    return role;
+  }
+
+  // Admin - Permissions
+  async getAllPermissions() {
+    const permissions = await Permission.find({});
+    return permissions;
+  }
+
+  async createPermission(req) {
+    const newPermission = new Permission();
+    newPermission.name = req.body.permission.name;
+    newPermission.paired = req.body.permission.paired;
+    const permission = await newPermission.save();
+    return permission;
+  }
+
+  // Admin - Role Permission Table
+  async getLatestRoleLPermissionTable() {
+    // Get latest role permission table for role permissions table versioning
+    const rolePermissionTable = await RolePermissionTable.findOne()
+      .limit(1)
+      .sort({ $natural: -1 });
+
+    if (rolePermissionTable === null || rolePermissionTable === undefined) {
+      return {};
+    } else {
+      return JSON.parse(rolePermissionTable.rolePermissionTable);
+    }
+  }
+
+  async newRolePermissionTable(req) {
+    const newRolePermissionTable = new RolePermissionTable();
+    newRolePermissionTable.rolePermissionTable = JSON.stringify(
+      req.body.rolePermissionTable
+    );
+    const rolePermissionTable = await newRolePermissionTable.save();
+
+    this.updateRolePermissionsTableCache();
+    return rolePermissionTable;
+  }
+
+  // Blockchain
+  async createVerifiableCredential(vcJwt, verifiedVC, issuer, document) {
+    const newVC = new VerifiableCredential();
+    newVC.vcJwt = vcJwt;
+    newVC.verifiedVC = verifiedVC;
+    newVC.issuer = issuer;
+    newVC.document = document;
+    newVC.documentDid = document.did;
+    const vc = await newVC.save();
+
+    document.vcJwt = vcJwt;
+    await document.save();
+
+    return vc;
+  }
+
+  async createVerifiablePresentation(vpJwt, verifiedVP, issuer, document) {
+    const newVP = new VerifiablePresentation();
+    newVP.vpJwt = vpJwt;
+    newVP.verifiedVP = verifiedVP;
+    newVP.issuer = issuer;
+    newVP.document = document;
+    newVP.documentDid = document.did;
+    const vp = await newVP.save();
+
+    document.vpJwt = vpJwt;
+    await document.save();
+
+    return vp;
+  }
+
+  // Helpers
+  async generateHash(documentUrl) {
+    return new Promise((resolve, reject) => {
+      // Hash from URL
+      let localUrl =
+        "http://localhost:" +
+        (process.env.PORT || 5000) +
+        "/api/documents/" +
+        documentUrl;
+
+      imageHash(localUrl, 16, true, (error, data) => {
+        if (error) throw error;
+        resolve(data);
+      });
     });
   }
 }
