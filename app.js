@@ -9,6 +9,7 @@ let session = require("express-session");
 let cors = require("cors");
 let router = require("./routes");
 let common = require("./common/common");
+let { errors } = require("celebrate");
 require("./config/passport");
 
 const app = express();
@@ -31,6 +32,7 @@ app.use(
     saveUninitialized: false
   })
 );
+app.use(errors());
 
 app.use(router);
 
