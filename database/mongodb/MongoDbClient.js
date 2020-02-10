@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const grid = require("gridfs-stream");
-const { imageHash } = require("image-hash");
+const request = require("request").defaults({ encoding: null });
+const md5 = require("md5");
 
 const Account = require("./models/Account");
 const Document = require("./models/Document");
@@ -21,19 +22,14 @@ class MongoDbClient {
     this.cachedRolePermissionTable = undefined;
     this.mongoURI = process.env.MONGODB_URI;
 
-    this.fileConnection = mongoose.createConnection(
-      this.mongoURI,
-      mongoDbOptions
-    );
+    this.fileConnection = mongoose.createConnection(this.mongoURI, mongoDbOptions);
 
     this.fileConnection.once("open", () => {
       this.gfs = grid(this.fileConnection.db, mongoose.mongo);
       this.gfs.collection("uploads");
     });
 
-    mongoose
-      .connect(this.mongoURI, mongoDbOptions)
-      .then(this.updateRolePermissionsTableCache());
+    mongoose.connect(this.mongoURI, mongoDbOptions).then(this.updateRolePermissionsTableCache());
   }
 
   // Cache
@@ -79,14 +75,12 @@ class MongoDbClient {
     newDocument.uploadedBy = account;
     const document = await newDocument.save();
 
-    const hash = await this.generateHash(document.url);
+    const hash = await this.getHash(document.url);
     document.hash = hash;
     await document.save();
 
     if (req.body.uploadForAccountId !== undefined) {
-      const uploadForAccount = await Account.findById(
-        req.body.uploadForAccountId
-      );
+      const uploadForAccount = await Account.findById(req.body.uploadForAccountId);
       uploadForAccount.documents.push(document);
       await uploadForAccount.save();
     } else {
@@ -116,10 +110,7 @@ class MongoDbClient {
           err: "No file exists"
         });
       }
-      if (
-        file.contentType === "image/jpeg" ||
-        file.contentType === "image/png"
-      ) {
+      if (file.contentType === "image/jpeg" || file.contentType === "image/png") {
         // Read output to browser
         const readstream = this.gfs.createReadStream(file.filename);
         readstream.pipe(res);
@@ -174,9 +165,7 @@ class MongoDbClient {
 
   async newRolePermissionTable(req) {
     const newRolePermissionTable = new RolePermissionTable();
-    newRolePermissionTable.rolePermissionTable = JSON.stringify(
-      req.body.rolePermissionTable
-    );
+    newRolePermissionTable.rolePermissionTable = JSON.stringify(req.body.rolePermissionTable);
     const rolePermissionTable = await newRolePermissionTable.save();
 
     this.updateRolePermissionsTableCache();
@@ -215,18 +204,16 @@ class MongoDbClient {
   }
 
   // Helpers
-  async generateHash(documentUrl) {
+  async getHash(documentUrl) {
     return new Promise((resolve, reject) => {
       // Hash from URL
-      let localUrl =
-        "http://localhost:" +
-        (process.env.PORT || 5000) +
-        "/api/documents/" +
-        documentUrl;
+      let localUrl = "http://localhost:" + (process.env.PORT || 5000) + "/api/documents/" + documentUrl;
 
-      imageHash(localUrl, 16, true, (error, data) => {
-        if (error) throw error;
-        resolve(data);
+      request.get(localUrl, function(err, res, body) {
+        console.log("internal hash");
+        const md5Hash = md5(body);
+        console.log(md5Hash);
+        resolve(md5Hash);
       });
     });
   }

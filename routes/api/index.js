@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const { celebrate, Joi } = require("celebrate");
+const { celebrate } = require("celebrate");
 
 const AccountController = require("../../controllers/accountController");
 const DocumentController = require("../../controllers/documentController");

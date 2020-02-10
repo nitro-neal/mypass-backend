@@ -2,7 +2,7 @@
 require("dotenv").config();
 
 let MongoDbClient = require("./database/mongodb/MongoDbClient");
-let UportClient = require("./blockchain/UportClient");
+let UportClient = require("./services/blockchain/UportClient");
 let express = require("express");
 let bodyParser = require("body-parser");
 let session = require("express-session");
@@ -10,7 +10,7 @@ let cors = require("cors");
 let router = require("./routes");
 let common = require("./common/common");
 let { errors } = require("celebrate");
-require("./config/passport");
+require("./routes/middleware/passport");
 
 const app = express();
 
