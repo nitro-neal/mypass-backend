@@ -3,7 +3,7 @@ const passport = require("passport");
 
 module.exports = {
   getAcccount: async (req, res, next) => {
-    const account = await common.dbClient.getAccountById(req);
+    const account = await common.dbClient.getAccountById(req.payload.id);
     res.status(200).json({ account: account.toAuthJSON() });
   },
 
@@ -14,7 +14,7 @@ module.exports = {
 
   newAccount: async (req, res, next) => {
     const did = await common.blockchainClient.createNewDID();
-    const account = await common.dbClient.createAccount(req, did);
+    const account = await common.dbClient.createAccount(req.body.account, did);
     return res.status(201).json({ account: account.toAuthJSON() });
   },
 

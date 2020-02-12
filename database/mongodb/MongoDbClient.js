@@ -42,8 +42,8 @@ class MongoDbClient {
   }
 
   // Accounts
-  async getAccountById(req) {
-    const account = await Account.findById(req.payload.id);
+  async getAccountById(id) {
+    const account = await Account.findById(id);
     return account;
   }
 
@@ -52,47 +52,39 @@ class MongoDbClient {
     return accounts;
   }
 
-  async createAccount(req, did) {
+  async createAccount(account, did) {
     const newAccount = new Account();
-    newAccount.username = req.body.account.username;
-    newAccount.email = req.body.account.email;
-    newAccount.role = req.body.account.role;
+    newAccount.username = account.username;
+    newAccount.email = account.email;
+    newAccount.role = account.role;
     newAccount.didAddress = did.address;
     newAccount.didPrivateKey = did.privateKey;
-    newAccount.setPassword(req.body.account.password);
+    newAccount.setPassword(account.password);
 
-    const account = await newAccount.save();
-    return account;
+    const savedAccount = await newAccount.save();
+    return savedAccount;
   }
 
   // Documents
-  async uploadDocument(req) {
-    const account = await Account.findById(req.payload.id);
-
+  async uploadDocument(uploadedByAccount, uploadForAccount, file) {
     const newDocument = new Document();
-    newDocument.name = req.file.originalName;
-    newDocument.url = req.file.filename;
-    newDocument.uploadedBy = account;
+    newDocument.name = file.originalName;
+    newDocument.url = file.filename;
+    newDocument.uploadedBy = uploadedByAccount;
     const document = await newDocument.save();
 
     const hash = await this.getHash(document.url);
     document.hash = hash;
     await document.save();
 
-    if (req.body.uploadForAccountId !== undefined) {
-      const uploadForAccount = await Account.findById(req.body.uploadForAccountId);
-      uploadForAccount.documents.push(document);
-      await uploadForAccount.save();
-    } else {
-      account.documents.push(document);
-      await account.save();
-    }
+    uploadForAccount.documents.push(document);
+    await uploadForAccount.save();
 
     return document;
   }
 
-  async getDocuments(req) {
-    const account = await Account.findById(req.payload.id);
+  async getDocuments(accountId) {
+    const account = await Account.findById(accountId);
 
     let documents = await Document.find({
       _id: {
@@ -103,23 +95,9 @@ class MongoDbClient {
     return documents;
   }
 
-  async getDocument(req, res) {
-    this.gfs.files.findOne({ filename: req.params.filename }, (err, file) => {
-      if (!file || file.length === 0) {
-        return res.status(404).json({
-          err: "No file exists"
-        });
-      }
-      if (file.contentType === "image/jpeg" || file.contentType === "image/png") {
-        // Read output to browser
-        const readstream = this.gfs.createReadStream(file.filename);
-        readstream.pipe(res);
-      } else {
-        res.status(404).json({
-          err: "Not an image"
-        });
-      }
-    });
+  async getDocument(filename) {
+    const payload = await this.getDocumentPromise(filename);
+    return payload;
   }
 
   // Admin - Roles
@@ -128,11 +106,11 @@ class MongoDbClient {
     return roles;
   }
 
-  async createRole(req) {
+  async createRole(role) {
     const newRole = new Role();
-    newRole.name = req.body.role.name;
-    const role = await newRole.save();
-    return role;
+    newRole.name = role.name;
+    const roleSaved = await newRole.save();
+    return roleSaved;
   }
 
   // Admin - Permissions
@@ -141,12 +119,12 @@ class MongoDbClient {
     return permissions;
   }
 
-  async createPermission(req) {
+  async createPermission(permission) {
     const newPermission = new Permission();
-    newPermission.name = req.body.permission.name;
-    newPermission.paired = req.body.permission.paired;
-    const permission = await newPermission.save();
-    return permission;
+    newPermission.name = permission.name;
+    newPermission.paired = permission.paired;
+    const permissionSaved = await newPermission.save();
+    return permissionSaved;
   }
 
   // Admin - Role Permission Table
@@ -163,13 +141,13 @@ class MongoDbClient {
     }
   }
 
-  async newRolePermissionTable(req) {
+  async newRolePermissionTable(rolePermissionTable) {
     const newRolePermissionTable = new RolePermissionTable();
-    newRolePermissionTable.rolePermissionTable = JSON.stringify(req.body.rolePermissionTable);
-    const rolePermissionTable = await newRolePermissionTable.save();
+    newRolePermissionTable.rolePermissionTable = JSON.stringify(rolePermissionTable);
+    const rolePermissionTableSaved = await newRolePermissionTable.save();
 
     this.updateRolePermissionsTableCache();
-    return rolePermissionTable;
+    return rolePermissionTableSaved;
   }
 
   // Blockchain
@@ -210,10 +188,20 @@ class MongoDbClient {
       let localUrl = "http://localhost:" + (process.env.PORT || 5000) + "/api/documents/" + documentUrl;
 
       request.get(localUrl, function(err, res, body) {
-        console.log("internal hash");
         const md5Hash = md5(body);
-        console.log(md5Hash);
         resolve(md5Hash);
+      });
+    });
+  }
+
+  async getDocumentPromise(filename) {
+    return new Promise((resolve, reject) => {
+      this.gfs.files.findOne({ filename: filename }, (err, file) => {
+        if (!file || file.length === 0) {
+          resolve({ error: "No file exists" });
+        }
+        const readstream = this.gfs.createReadStream(file.filename);
+        resolve(readstream);
       });
     });
   }
