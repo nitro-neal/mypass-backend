@@ -12,9 +12,9 @@ jobs:
             - run: npm install
             - run: npm test
 
-    deploy:
-      steps:
-        - run: ssh -o StrictHostKeyChecking=no ubuntu@ec2-34-212-27-73.us-west-2.compute.amazonaws.com "bash -s" < deploy.sh
+  deploy:
+    steps:
+      - run: ssh -o StrictHostKeyChecking=no ubuntu@ec2-34-212-27-73.us-west-2.compute.amazonaws.com "bash -s" < deploy.sh
 
 workflows:
   test-and-deploy:
