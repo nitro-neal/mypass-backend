@@ -5,7 +5,8 @@
   "main": "app.js",
   "scripts": {
     "start": "node ./app.js",
-    "dev": "nodemon ./app.js"
+    "dev": "nodemon ./app.js",
+    "test": "jest"
   },
   "license": "ISC",
   "dependencies": {
@@ -23,6 +24,7 @@
     "express-session": "^1.17.0",
     "gridfs-stream": "^1.1.1",
     "ip": "^1.1.5",
+    "jest": "^25.1.0",
     "joi-objectid": "^3.0.1",
     "jsonwebtoken": "^8.5.1",
     "md5": "^2.2.1",
