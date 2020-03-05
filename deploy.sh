@@ -10,7 +10,7 @@ git pull
 
 yarn
 
-forever stop --uid "backend"
-forever start --uid "backend" app.js
+forever stop app.js
+forever start -c "node" app.js
 
 echo ~~FINISHED~~
