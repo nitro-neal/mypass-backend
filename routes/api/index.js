@@ -96,7 +96,7 @@ router
 
 // Other
 router.route("/version").get((req, res, next) => {
-  res.status(200).json({ version: "0.1" });
+  res.status(200).json({ version: "0.2" });
 });
 
 router.use(function(err, req, res, next) {
