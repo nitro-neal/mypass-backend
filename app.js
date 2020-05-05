@@ -32,7 +32,24 @@ if (process.env.SESSION_SECRET === undefined) {
     });
   });
 
-  app.get("/", (req, res) => res.send("Hello World!"));
+  app.get("/", (req, res) => {
+    res.send("Hello World!");
+  });
+
+  app.get("/restart", (req, res) => {
+    console.log("This is pid " + process.pid);
+    setTimeout(function () {
+      process.on("exit", function () {
+        require("child_process").spawn(process.argv.shift(), process.argv, {
+          cwd: process.cwd(),
+          detached: true,
+          stdio: "inherit",
+        });
+      });
+      process.exit();
+    }, 5000);
+    console.log("restarting");
+  });
 
   const server = app.listen(process.env.PORT || 5000, function () {
     console.log("Listening on port " + server.address().port);
