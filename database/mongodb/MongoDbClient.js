@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
-const grid = require("gridfs-stream");
-const documentStorageHelper = require("../../common/documentStorageHelper");
+const EthCrypto = require("eth-crypto");
+const secureKeyStorage = require("../../common/secureKeyStorage");
 
 const Account = require("./models/Account");
 const Document = require("./models/Document");
@@ -15,7 +15,7 @@ const VerifiablePresentation = require("./models/VerifiablePresentation");
 let mongoDbOptions = {
   useUnifiedTopology: true,
   useNewUrlParser: true,
-  useCreateIndex: true
+  useCreateIndex: true,
 };
 
 class MongoDbClient {
@@ -23,22 +23,18 @@ class MongoDbClient {
     this.cachedRolePermissionTable = undefined;
     this.mongoURI = process.env.MONGODB_URI;
 
-    this.fileConnection = mongoose.createConnection(
-      this.mongoURI,
-      mongoDbOptions
-    );
-
-    this.fileConnection.once("open", () => {
-      this.gfs = grid(this.fileConnection.db, mongoose.mongo);
-      this.gfs.collection("uploads");
-    });
-
     mongoose.connect(this.mongoURI, mongoDbOptions).then(() => {
       this.populateDefaultValues();
       this.updateRolePermissionsTableCache();
     });
   }
 
+  async resetDatabase() {
+    await Account.collection.drop();
+    await Document.collection.drop();
+    await ShareRequest.collection.drop();
+    await this.populateDefaultValues();
+  }
   // DB initial setup
   async populateDefaultValues() {
     const accounts = await this.getAllAccounts();
@@ -46,42 +42,157 @@ class MongoDbClient {
 
     if (accounts.length === 0) {
       console.log("\nAccounts are empty. Populating default values...");
+
+      // Sally
       let ownerAccount = {
         account: {
           username: "SallyOwner",
+          firstname: "Sally",
+          lastname: "Owner",
           password: "owner",
           role: "owner",
-          email: "owner@owner.com"
-        }
+          email: "owner@owner.com",
+          phonenumber: "555-555-5555",
+          organization: "-",
+        },
       };
       let ownerDid = {
         did: {
           address: "0x6efedeaec20e79071251fffa655F1bdDCa65c027",
+          publicEncryptionKey: EthCrypto.publicKeyByPrivateKey(
+            "0x" +
+              "d28678b5d893ea7accd58901274dc5df8eb00bc76671dbf57ab65ee44c848415"
+          ),
           privateKey:
-            "d28678b5d893ea7accd58901274dc5df8eb00bc76671dbf57ab65ee44c848415"
-        }
+            "d28678b5d893ea7accd58901274dc5df8eb00bc76671dbf57ab65ee44c848415",
+          privateKeyGuid: "5663aaf5-2b94-4854-a862-07a7fe75e400",
+        },
       };
-      this.createAccount(ownerAccount.account, ownerDid.did, "06fz-0000");
 
+      await secureKeyStorage.store(
+        ownerDid.did.privateKeyGuid,
+        ownerDid.did.privateKey
+      );
+
+      this.createAccount(
+        ownerAccount.account,
+        ownerDid.did,
+        "06fz-0000",
+        "sally.png"
+      );
+
+      // Billy
       let caseWorkerAccount = {
         account: {
           username: "BillyCaseWorker",
+          firstname: "Billy",
+          lastname: "Caseworker",
           password: "caseworker",
           role: "notary",
-          email: "caseworker@caseworker.com"
-        }
+          email: "caseworker@caseworker.com",
+          phonenumber: "555-555-5555",
+          organization: "Banana Org",
+        },
       };
       let caseWorkerDid = {
         did: {
           address: "0x2a6F1D5083fb19b9f2C653B598abCb5705eD0439",
+          publicEncryptionKey: EthCrypto.publicKeyByPrivateKey(
+            "0x" +
+              "8ef83de6f0ccf32798f8afcd436936870af619511f2385e8aace87729e771a8b"
+          ),
           privateKey:
-            "8ef83de6f0ccf32798f8afcd436936870af619511f2385e8aace87729e771a8b"
-        }
+            "8ef83de6f0ccf32798f8afcd436936870af619511f2385e8aace87729e771a8b",
+          privateKeyGuid: "53d9269b-a90b-423e-be17-e2a6517790b1",
+        },
       };
+
+      await secureKeyStorage.store(
+        caseWorkerDid.did.privateKeyGuid,
+        caseWorkerDid.did.privateKey
+      );
+
       this.createAccount(
         caseWorkerAccount.account,
         caseWorkerDid.did,
-        "06fy-0000"
+        "06fy-0000",
+        "billy.png"
+      );
+
+      // Karen
+      let caseWorkerAccountTwo = {
+        account: {
+          username: "KarenCaseWorker",
+          firstname: "Karen",
+          lastname: "Caseworker",
+          password: "caseworker",
+          role: "notary",
+          email: "karencaseworker@caseworker.com",
+          phonenumber: "555-555-5555",
+          organization: "Apple Org",
+        },
+      };
+      let caseWorkerDidTwo = {
+        did: {
+          address: "0x0F4FBead5219388CD71FAa2bbd63C26Aad0ae2c5",
+          publicEncryptionKey: EthCrypto.publicKeyByPrivateKey(
+            "0x" +
+              "403c9b0e55db5ff1434d07711baa34d76eecc2723cdb599a42f5f2cbf6fd3262"
+          ),
+          privateKey:
+            "403c9b0e55db5ff1434d07711baa34d76eecc2723cdb599a42f5f2cbf6fd3262",
+          privateKeyGuid: "6ee64b8e-0623-4cad-8162-26e49e74b2dc",
+        },
+      };
+
+      await secureKeyStorage.store(
+        caseWorkerDidTwo.did.privateKeyGuid,
+        caseWorkerDidTwo.did.privateKey
+      );
+
+      this.createAccount(
+        caseWorkerAccountTwo.account,
+        caseWorkerDidTwo.did,
+        "06fy-0000",
+        "karen.png"
+      );
+
+      // Josh
+      let caseWorkerAccountThree = {
+        account: {
+          username: "JoshCaseWorker",
+          firstname: "Josh",
+          lastname: "Caseworker",
+          password: "caseworker",
+          role: "notary",
+          email: "joshcaseworker@caseworker.com",
+          phonenumber: "555-555-5555",
+          organization: "Pear Org",
+        },
+      };
+      let caseWorkerDidThree = {
+        did: {
+          address: "0x56bf6887202d8aa6Df4Bc312e866E955FE0FC9aD",
+          publicEncryptionKey: EthCrypto.publicKeyByPrivateKey(
+            "0x" +
+              "a2bf1a07ccb785b7baf041dc0135ae9bfbf049bd36068777e4796185fe1ff5c0"
+          ),
+          privateKey:
+            "a2bf1a07ccb785b7baf041dc0135ae9bfbf049bd36068777e4796185fe1ff5c0",
+          privateKeyGuid: "22161991-55f9-45fc-b6c5-de8e339701f1",
+        },
+      };
+
+      await secureKeyStorage.store(
+        caseWorkerDidThree.did.privateKeyGuid,
+        caseWorkerDidThree.did.privateKey
+      );
+
+      this.createAccount(
+        caseWorkerAccountThree.account,
+        caseWorkerDidThree.did,
+        "06fy-0000",
+        "josh.png"
       );
     }
 
@@ -94,12 +205,12 @@ class MongoDbClient {
         "Medical Records",
         "Social Security Card",
         "Passport",
-        "Marriage Certificate"
+        "Marriage Certificate",
       ];
       for (let record of records) {
         let fields = [
           { fieldName: "name", required: true },
-          { fieldName: "dateofbirth", required: false }
+          { fieldName: "dateofbirth", required: false },
         ];
 
         this.createDocumentType({ name: record, fields: fields });
@@ -125,7 +236,7 @@ class MongoDbClient {
   async getAllAccountInfoById(id) {
     const account = await Account.findById(id).populate([
       "documents",
-      "shareRequests"
+      "shareRequests",
     ]);
     return account;
   }
@@ -135,39 +246,81 @@ class MongoDbClient {
     return accounts;
   }
 
-  async createAccount(account, did, permanentOrgArchiveNumber) {
+  async createAccount(
+    accountReq,
+    did,
+    permanentOrgArchiveNumber,
+    profileImageUrl
+  ) {
     const newAccount = new Account();
-    newAccount.username = account.username;
-    newAccount.email = account.email;
-    newAccount.role = account.role;
+    newAccount.username = accountReq.username;
+    newAccount.firstName = accountReq.firstname;
+    newAccount.lastName = accountReq.lastname;
+    newAccount.email = accountReq.email;
+    newAccount.role = accountReq.role;
+    newAccount.phoneNumber = accountReq.phonenumber;
+    newAccount.organization = accountReq.organization;
     newAccount.permanentOrgArchiveNumber = permanentOrgArchiveNumber;
+
     newAccount.didAddress = did.address;
-    newAccount.didPrivateKey = did.privateKey;
-    newAccount.setPassword(account.password);
+    newAccount.didPublicEncryptionKey = did.publicEncryptionKey;
+    newAccount.didPrivateKeyGuid = did.privateKeyGuid;
+    newAccount.profileImageUrl = profileImageUrl;
+    newAccount.setPassword(accountReq.password);
 
     const savedAccount = await newAccount.save();
     return savedAccount;
   }
 
+  async updateAccount(accountId, profileImageUrl) {
+    const account = await Account.findById(accountId);
+    account.profileImageUrl = profileImageUrl;
+    await account.save();
+    return account;
+  }
+
   async getShareRequests(accountId) {
     const account = await Account.findById(accountId).populate({
-      path: "shareRequests"
+      path: "shareRequests",
     });
 
     return account.shareRequests;
   }
 
+  async getShareRequestByUrl(url) {
+    let shareRequest = await ShareRequest.findOne({
+      $or: [{ documentUrl: url }, { documentThumbnailUrl: url }],
+    });
+    return shareRequest;
+  }
+
   async deleteShareRequestByDocumentId(documentId) {
     await ShareRequest.deleteMany({
-      documentId: documentId
+      documentId: documentId,
     });
     return;
   }
 
+  async deleteShareRequest(shareRequestAccountOwnerId, shareRequestId) {
+    let account = await Account.findById(shareRequestAccountOwnerId);
+
+    // Remove share request from owner
+    await account.shareRequests.pull({ _id: shareRequestId });
+    await account.save();
+
+    // Delete Share Request
+    await ShareRequest.deleteMany({
+      _id: shareRequestId,
+    });
+
+    return;
+  }
+
+  // TODO: Make document id / url explicit in share request params
   async createShareRequest(accountRequestingId, accountId, documentTypeName) {
     const account = await Account.findById(accountId);
-
     const documents = await this.getDocuments(accountId);
+
     let documentUrl;
     let documentId;
 
@@ -197,17 +350,13 @@ class MongoDbClient {
     return shareRequest;
   }
 
-  async approveOrDenyShareRequest(shareRequestId, approved) {
+  async approveOrDenyShareRequest(shareRequestId, approved, key, thumbnailKey) {
     const shareRequest = await ShareRequest.findById(shareRequestId);
     shareRequest.approved = approved;
+    shareRequest.documentUrl = key;
+    shareRequest.documentThumbnailUrl = thumbnailKey;
 
     await shareRequest.save();
-
-    if (shareRequest.approved === true) {
-      const document = await Document.findById(shareRequest.documentId);
-      document.sharedWithAccountIds.push(shareRequest.shareWithAccountId);
-      await document.save();
-    }
 
     return shareRequest;
   }
@@ -234,18 +383,31 @@ class MongoDbClient {
     uploadForAccount,
     originalFileName,
     fileKey,
+    thumbnailKey,
     documentType,
     permanentOrgFileArchiveNumber,
-    md5
+    md5,
+    validUntilDate,
+    encryptionPubKey,
+    claimed = true
   ) {
+    let date;
+    if (validUntilDate !== undefined && !(validUntilDate instanceof Date)) {
+      date = new Date(validUntilDate);
+    }
+
     const newDocument = new Document();
     newDocument.name = originalFileName;
     newDocument.url = fileKey;
+    newDocument.thumbnailUrl = thumbnailKey;
     newDocument.uploadedBy = uploadedByAccount;
     newDocument.belongsTo = uploadForAccount;
+    newDocument.encryptionPubKey = encryptionPubKey;
     newDocument.type = documentType;
     newDocument.permanentOrgFileArchiveNumber = permanentOrgFileArchiveNumber;
     newDocument.hash = md5;
+    newDocument.validUntilDate = date;
+    newDocument.claimed = claimed;
     await newDocument.save();
 
     uploadForAccount.documents.push(newDocument);
@@ -254,34 +416,66 @@ class MongoDbClient {
     return newDocument;
   }
 
+  async updateDocument(
+    documentId,
+    filename,
+    key,
+    thumbnailKey,
+    permanentOrgFileArchiveNumber,
+    md5,
+    validUntilDate
+  ) {
+    let document = await Document.findById(documentId);
+
+    let date = validUntilDate;
+
+    if (
+      validUntilDate !== undefined &&
+      !(validUntilDate instanceof Date) &&
+      validUntilDate.includes("-")
+    ) {
+      date = new Date(validUntilDate);
+    }
+
+    document.name = filename;
+    document.url = key;
+    document.thumbnailUrl = thumbnailKey;
+
+    document.permanentOrgFileArchiveNumber = permanentOrgFileArchiveNumber;
+    document.hash = md5;
+    document.validUntilDate = date;
+    await document.save();
+
+    return document;
+  }
+
   async getDocuments(accountId) {
     const account = await Account.findById(accountId);
 
     let documents = await Document.find({
       _id: {
-        $in: account.documents
-      }
+        $in: account.documents,
+      },
     });
 
     return documents;
   }
 
   async getDocument(filename) {
-    let document = await Document.findOne({ url: filename });
+    let document = await Document.findOne({
+      $or: [{ url: filename }, { thumbnailUrl: filename }],
+    });
     return document;
   }
 
-  async getDocumentData(filename) {
-    const payload = await this.getDocumentPromise(filename);
-    return payload;
-  }
-  async deleteDocumentData(filename) {
-    await this.deleteDocumentPromise(filename);
+  async getDocumentById(documentId) {
+    let document = await Document.findById(documentId);
+    return document;
   }
 
   async deleteDocument(filename) {
     const document = await Document.findOneAndRemove({
-      url: filename
+      url: filename,
     });
 
     return document;
@@ -340,13 +534,20 @@ class MongoDbClient {
   }
 
   // Blockchain
-  async createVerifiableCredential(vcJwt, verifiedVC, issuer, document) {
+  async createVerifiableCredential(
+    vcJwt,
+    verifiedVC,
+    issuer,
+    document,
+    privateKey
+  ) {
     const newVC = new VerifiableCredential();
     newVC.vcJwt = vcJwt;
     newVC.verifiedVC = verifiedVC;
     newVC.issuer = issuer;
     newVC.document = document;
     newVC.documentDid = document.did;
+    newVC.documentDidPrivateKey = privateKey;
     const vc = await newVC.save();
 
     document.vcJwt = vcJwt;
@@ -368,34 +569,6 @@ class MongoDbClient {
     await document.save();
 
     return vp;
-  }
-
-  async getDocumentPromise(filename) {
-    return new Promise((resolve, reject) => {
-      this.gfs.files.findOne({ filename: filename }, (err, file) => {
-        if (!file || file.length === 0) {
-          resolve({ error: "No file exists" });
-        }
-        let readstream;
-        try {
-          readstream = this.gfs.createReadStream(file.filename);
-        } catch (e) {
-          console.log({ error: e });
-        }
-        resolve(readstream);
-      });
-    });
-  }
-
-  async deleteDocumentPromise(filename) {
-    return new Promise((resolve, reject) => {
-      this.gfs.files.deleteOne({ filename: filename }, (err, file) => {
-        if (!file || file.length === 0) {
-          resolve({ error: "No file exists" });
-        }
-        resolve();
-      });
-    });
   }
 }
 

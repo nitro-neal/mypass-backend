@@ -10,50 +10,86 @@ const { isAllowedUploadDocument } = require("../middleware/permission");
 const Schema = require("../middleware/schema");
 
 // Accounts
-router.route("/my-account").get(auth.required, AccountController.getAcccount);
+router.route("/my-account").get(auth.required, AccountController.getAccount);
 
 router
   .route("/accounts")
-  .get(auth.required, AccountController.getAcccounts)
+  .get(auth.required, AccountController.getAccounts)
+  .put(auth.required, AccountController.updateAccount)
   .post(
     celebrate({
-      body: Schema.userRegisterSchema
+      body: Schema.userRegisterSchema,
     }),
     AccountController.newAccount
   );
 
 router.route("/accounts/login").post(
   celebrate({
-    body: Schema.userLoginSchema
+    body: Schema.userLoginSchema,
   }),
   AccountController.login
 );
+
 router
   .route("/account/:accountId/document-types/")
   .get(auth.required, AccountController.getAvailableDocumentTypes);
 
 router
   .route("/account/:accountId/share-requests/")
+  .get(auth.required, AccountController.getShareRequests);
+
+router
+  .route("/share-requests")
   .get(auth.required, AccountController.getShareRequests)
-  .post(
-    [auth.required, celebrate({ body: Schema.shareRequestSchema })],
-    AccountController.newShareRequest
-  )
-  .put(auth.required, AccountController.approveOrDenyShareRequest);
+  .post([auth.required], AccountController.newShareRequest);
+
+router
+  .route("/share-requests/:shareRequestId")
+  .put(auth.required, AccountController.approveOrDenyShareRequest)
+  .delete(auth.required, AccountController.deleteShareRequest);
+
+router
+  .route("/profile-image/:imageurl/:jwt")
+  .get(auth.image, AccountController.getProfileImage);
+
+router
+  .route("/get-encryption-key")
+  .get(auth.required, AccountController.getEncryptionKey);
 
 // Documents
 router.route("/document-types/").get(DocumentController.getDocumentTypes);
+router.route("/txt-record/:recordId").get(DocumentController.getTxtRecord);
+
+router.route("/create-notarized-document/").post(
+  [
+    auth.required,
+    celebrate({
+      body: Schema.createNotarizedDocumentSchema,
+    }),
+  ],
+  DocumentController.createNotarizedDocument
+);
 
 router
   .route("/documents/")
   .get(auth.required, DocumentController.getDocuments)
   .post(
-    [auth.required, isAllowedUploadDocument],
+    [
+      auth.required,
+      celebrate({
+        body: Schema.uploadDocumentSchema,
+      }),
+      isAllowedUploadDocument,
+    ],
     DocumentController.uploadDocument
   );
 
 router
-  .route("/upload-document-and-notarize-on-behalf-of-user/")
+  .route("/documents/:documentId")
+  .put(auth.required, DocumentController.updateDocument);
+
+router
+  .route("/upload-document-on-behalf-of-user/")
   .post(
     [auth.required, isAllowedUploadDocument],
     DocumentController.uploadDocumentOnBehalfOfUser
@@ -92,14 +128,22 @@ router
     AdminController.newPermission
   );
 
-router.use(function(err, req, res, next) {
+/* TODO:
+      REMOVE THIS DANGEROUS CALL WHEN WE GO TO PRODUCTION
+  */
+// router.route("/reset-database/").post(AdminController.resetDatabase);
+/* TODO:
+      REMOVE THIS DANGEROUS CALL WHEN WE GO TO PRODUCTION
+  */
+
+router.use(function (err, req, res, next) {
   if (err.name === "ValidationError") {
     return res.status(422).json({
-      errors: Object.keys(err.errors).reduce(function(errors, key) {
+      errors: Object.keys(err.errors).reduce(function (errors, key) {
         errors[key] = err.errors[key].message;
 
         return errors;
-      }, {})
+      }, {}),
     });
   }
 

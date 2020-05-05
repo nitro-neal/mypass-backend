@@ -1,13 +1,104 @@
 const common = require("../common/common");
 const documentStorageHelper = require("../common/documentStorageHelper");
+const documentNotarization = require("../common/documentNotarization");
 const permanent = require("../common/permanentClient");
+const secureKeyStorage = require("../common/secureKeyStorage");
 
 module.exports = {
-  uploadDocument: async (req, res, next) => {
+  updateDocument: async (req, res, next) => {
+    const documentId = req.params.documentId;
     const account = await common.dbClient.getAccountById(req.payload.id);
-    const file = req.files.img;
+    const document = await common.dbClient.getDocumentById(documentId);
 
-    let key = await documentStorageHelper.upload(file);
+    if (!document.belongsTo._id.equals(account._id)) {
+      res.status(403).json({
+        error: "Account not authorized update this document",
+      });
+      return;
+    }
+
+    let md5 = document.hash;
+    let filename = document.name;
+    let permanentOrgFileArchiveNumber = document.permanentOrgFileArchiveNumber;
+    let key = document.url;
+    let thumbnailKey = document.thumbnailUrl;
+    let validuntildate = req.body.validuntildate || document.validUntilDate;
+
+    if (
+      req.files !== undefined &&
+      req.files !== null &&
+      req.files.img !== undefined
+    ) {
+      const newFile =
+        req.files.img[0] === undefined ? req.files.img : req.files.img[0];
+
+      const newThumbnailFile =
+        req.files.img[1] === undefined ? undefined : req.files.img[1];
+
+      filename = newFile.name;
+      md5 = newFile.md5;
+      key = await documentStorageHelper.upload(newFile, "document");
+
+      permanentOrgFileArchiveNumber = await permanent.addToPermanentArchive(
+        newFile,
+        key,
+        account.permanentOrgArchiveNumber
+      );
+
+      if (newThumbnailFile) {
+        thumbnailKey =
+          newThumbnailFile === undefined
+            ? undefined
+            : await documentStorageHelper.upload(newThumbnailFile, "document");
+      }
+    }
+
+    const updatedDocument = await common.dbClient.updateDocument(
+      documentId,
+      filename,
+      key,
+      thumbnailKey,
+      permanentOrgFileArchiveNumber,
+      md5,
+      validuntildate
+    );
+
+    res.status(200).json({ updatedDocument: updatedDocument.toPublicInfo() });
+  },
+
+  uploadDocument: async (req, res, next) => {
+    if (
+      req.files === undefined ||
+      req.files === null ||
+      req.files.img === undefined
+    ) {
+      res.status(501).json({
+        error: "Must include a file to upload.",
+      });
+      return;
+    }
+
+    if (req.body.type === undefined) {
+      res.status(501).json({
+        error:
+          "Document Type Does Not Exist!, Must be of type: Passport, Birth Certificate...",
+      });
+      return;
+    }
+
+    const account = await common.dbClient.getAccountById(req.payload.id);
+
+    const file =
+      req.files.img[0] === undefined ? req.files.img : req.files.img[0];
+
+    const thumbnailFile =
+      req.files.img[1] === undefined ? undefined : req.files.img[1];
+
+    const key = await documentStorageHelper.upload(file, "document");
+    const thumbnailKey =
+      thumbnailFile === undefined
+        ? undefined
+        : await documentStorageHelper.upload(thumbnailFile, "document");
 
     let permanentOrgFileArchiveNumber = await permanent.addToPermanentArchive(
       file,
@@ -20,100 +111,115 @@ module.exports = {
       account,
       file.name,
       key,
+      thumbnailKey,
       req.body.type,
       permanentOrgFileArchiveNumber,
-      file.md5
+      file.md5,
+      req.body.validuntildate,
+      req.body.encryptionPubKey
     );
-    res.status(200).json({ file: document.url });
+
+    // fullUrl: "http://" + ip.address() +":" + (process.env.PORT || 5000) + "/api/documents/" + document.url + "/" + account.generateJWT()
+
+    res.status(200).json({
+      file: document.url,
+      thumbnailUrl: document.thumbnailUrl,
+      document: document.toPublicInfo(),
+    });
   },
 
   uploadDocumentOnBehalfOfUser: async (req, res, next) => {
-    const account = await common.dbClient.getAccountById(req.payload.id);
+    if (
+      req.files === undefined ||
+      req.files === null ||
+      req.files.img.length !== 4
+    ) {
+      res.status(501).json({
+        error: "Must include files to upload.",
+      });
+      return;
+    }
 
+    if (req.body.type === undefined) {
+      res.status(501).json({
+        error:
+          "Document Type Does Not Exist!, Must be of type: Passport, Birth Certificate...",
+      });
+      return;
+    }
+
+    if (req.body.uploadForAccountId === undefined) {
+      res.status(501).json({
+        error: "Must include accountId that you are uploading on behalf",
+      });
+    }
+
+    const account = await common.dbClient.getAccountById(req.payload.id);
     const uploadForAccount = await common.dbClient.getAccountById(
       req.body.uploadForAccountId
     );
 
-    const uploadOnBehalfOfFile = req.files.img[0];
-    const notarySealFile = req.files.img[1];
+    const documentFile = req.files.img[0];
 
-    let key = await documentStorageHelper.upload(uploadOnBehalfOfFile);
+    const documentThumbnailFile = req.files.img[1];
+
+    const documentForAccountFile = req.files.img[2];
+
+    const documentForAccountThumbnailFile = req.files.img[3];
+
+    const key = await documentStorageHelper.upload(documentFile, "document");
+    const thumbnailKey = await documentStorageHelper.upload(
+      documentThumbnailFile,
+      "document"
+    );
 
     let permanentOrgFileArchiveNumber = await permanent.addToPermanentArchive(
-      uploadOnBehalfOfFile,
+      documentForAccountFile,
       key,
       uploadForAccount.permanentOrgArchiveNumber
     );
 
-    const document = await common.dbClient.createDocument(
-      account,
-      uploadForAccount,
-      uploadOnBehalfOfFile.name,
-      key,
-      req.body.type,
-      permanentOrgFileArchiveNumber,
-      uploadOnBehalfOfFile.md5
+    const keyForAccount = await documentStorageHelper.upload(
+      documentForAccountFile,
+      "document"
+    );
+    const thumbnailKeyForAccount = await documentStorageHelper.upload(
+      documentForAccountThumbnailFile,
+      "document"
     );
 
-    // Approve share request so person who uploaded it on behalf can have access
+    const document = await common.dbClient.createDocument(
+      uploadForAccount,
+      uploadForAccount,
+      documentForAccountFile.name,
+      keyForAccount,
+      thumbnailKeyForAccount,
+      req.body.type,
+      permanentOrgFileArchiveNumber,
+      documentForAccountFile.md5,
+      req.body.validuntildate,
+      req.body.encryptionPubKey,
+      false
+    );
+
     let shareRequest = await common.dbClient.createShareRequest(
       account._id,
       uploadForAccount._id,
-      req.body.type,
-      true
+      req.body.type
     );
 
-    await common.dbClient.approveOrDenyShareRequest(shareRequest._id, true);
-
-    // const issueTime = 1562950282;
-    const issueTime = Math.floor(Date.now() / 1000);
-    const vcJwt = await common.blockchainClient.createVC(
-      account.didAddress,
-      account.didPrivateKey,
-      uploadForAccount.didAddress,
-      document.did,
-      req.body.type,
-      document.hash,
-      document.url,
-      notarySealFile.md5,
-      req.body.notarizationType,
-      req.body.notaryInfo,
-      req.body.ownerSignature,
-      req.body.pem,
-      issueTime
-    );
-
-    const vpJwt = await common.blockchainClient.createVP(
-      account.didAddress,
-      account.didPrivateKey,
-      vcJwt
-    );
-
-    const verifiedVC = await common.blockchainClient.verifyVC(vcJwt);
-    const verifiedVP = await common.blockchainClient.verifyVP(vpJwt);
-
-    console.log("\n\nVERIFIED VC:\n");
-    console.log(verifiedVC);
-    console.log("\n\nVERIFIED VP:\n");
-    console.log(verifiedVP);
-
-    await common.dbClient.createVerifiableCredential(
-      vcJwt,
-      JSON.stringify(verifiedVC),
-      account,
-      document
-    );
-
-    await common.dbClient.createVerifiablePresentation(
-      vpJwt,
-      JSON.stringify(verifiedVP),
-      account,
-      document
+    shareRequest = await common.dbClient.approveOrDenyShareRequest(
+      shareRequest._id,
+      true,
+      key,
+      thumbnailKey
     );
 
     res.status(200).json({
-      vc: verifiedVC,
-      vp: verifiedVP
+      file: document.url,
+      shareRequest: shareRequest,
+      thumbnailUrl: document.thumbnailUrl,
+      document: document.toPublicInfo(),
     });
   },
 
@@ -128,34 +234,46 @@ module.exports = {
     const accountId = req.payload.id;
     const filename = req.params.filename;
     let approved = false;
-
+    let shareRequest;
     const document = await common.dbClient.getDocument(filename);
 
     if (document === undefined || document === null) {
+      shareRequest = await common.dbClient.getShareRequestByUrl(filename);
+    }
+
+    if (
+      (document === undefined || document === null) &&
+      (shareRequest === undefined || shareRequest === null)
+    ) {
       res.status(404).json({
-        error: "Document Does Not Exists"
+        error: "Document Does Not Exists",
       });
       return;
     }
 
-    for (let sharedWithAccountId of document.sharedWithAccountIds) {
-      if (sharedWithAccountId === accountId) {
-        approved = true;
-      }
+    if (
+      shareRequest !== undefined &&
+      shareRequest !== null &&
+      shareRequest.shareWithAccountId === accountId
+    ) {
+      approved = true;
     }
 
-    if (document.belongsTo == accountId || approved === true) {
-      const payload = await documentStorageHelper.getDocumentBytes(filename);
+    if (approved === true || document.belongsTo == accountId) {
+      const payload = await documentStorageHelper.getDocumentBytes(
+        filename,
+        "document"
+      );
       if (payload.error !== undefined) {
         res.status(404).json({
-          error: payload.error
+          error: payload.error,
         });
       } else {
         payload.pipe(res);
       }
     } else {
       res.status(403).json({
-        error: "Account not authorized to view this document"
+        error: "Account not authorized to view this document",
       });
     }
   },
@@ -163,7 +281,7 @@ module.exports = {
   deleteDocument: async (req, res, next) => {
     const filename = req.params.filename;
     let deletedDocument = await common.dbClient.deleteDocument(filename);
-    await documentStorageHelper.deleteDocumentBytes(filename);
+    await documentStorageHelper.deleteDocumentBytes(filename, "document");
 
     await common.dbClient.deleteShareRequestByDocumentId(deletedDocument._id);
 
@@ -173,5 +291,139 @@ module.exports = {
   getDocumentTypes: async (req, res, next) => {
     const documentTypes = await common.dbClient.getAllDocumentTypes();
     res.status(200).json({ documentTypes: documentTypes });
-  }
+  },
+
+  getTxtRecord: async (req, res, next) => {
+    let txtRecord = await common.blockchainClient.getTxtRecord(
+      req.params.recordId
+    );
+
+    res.status(200).json({ txtRecord: txtRecord });
+  },
+
+  createNotarizedDocument: async (req, res, next) => {
+    const notaryAccount = await common.dbClient.getAccountById(req.payload.id);
+    const ownerAccount = await common.dbClient.getAccountById(
+      req.body.ownerAccountId
+    );
+
+    const documentType = req.body.type;
+    const did = await common.blockchainClient.createNewDID();
+
+    const documentDID = "did:ethr:" + did.address;
+    const issueTime = Math.floor(Date.now() / 1000);
+    const issuanceDate = Date.now();
+    const expirationDate = new Date(req.body.expirationDate);
+    const validityTimeSeconds = Math.round(
+      (expirationDate - new Date()) / 1000
+    );
+
+    let notaryName = notaryAccount.firstName + notaryAccount.lastName;
+    notaryName = notaryName.replace(/\s/g, "");
+    const notaryId = "" + req.body.notaryId;
+
+    let fileInfo = await documentNotarization.createNotarizedDocument(
+      req.files.img[0],
+      req.files.img[1],
+      req.files.img[2],
+      documentDID
+    );
+
+    let s3FileRequst = {
+      name: "notarizedDocument.pdf",
+      tempFilePath: fileInfo.filename,
+    };
+
+    let key = await documentStorageHelper.upload(s3FileRequst, "document");
+
+    const document = await common.dbClient.createDocument(
+      notaryAccount,
+      ownerAccount,
+      req.files.img[0].name +
+        "-" +
+        req.files.img[1].name +
+        "-" +
+        req.files.img[2].name,
+      key,
+      key,
+      "Notarized " + documentType,
+      "",
+      fileInfo.md5,
+      expirationDate,
+      ""
+    );
+
+    let notaryPrivateKey = await secureKeyStorage.retrieve(
+      notaryAccount.didPrivateKeyGuid
+    );
+
+    let notarizedVCJwt = await common.blockchainClient.createNotarizedVC(
+      notaryAccount.didAddress,
+      notaryPrivateKey,
+      ownerAccount.didAddress,
+      documentDID,
+      documentType,
+      fileInfo.md5,
+      issueTime,
+      issuanceDate,
+      expirationDate,
+      notaryName,
+      notaryId
+    );
+
+    common.blockchainClient.storeJwtOnEthereumBlockchain(
+      notarizedVCJwt,
+      did,
+      validityTimeSeconds
+    );
+
+    const verifiedVC = await common.blockchainClient.verifyVC(notarizedVCJwt);
+
+    await common.dbClient.createVerifiableCredential(
+      notarizedVCJwt,
+      JSON.stringify(verifiedVC),
+      ownerAccount,
+      document,
+      did.privateKey
+    );
+
+    // Check if owner is in mypass.eth txt record
+    let ownertxtRecord = await common.blockchainClient.getTxtRecord(
+      "did:ethr:" + ownerAccount.didAddress
+    );
+
+    if (ownertxtRecord === "" || ownertxtRecord === undefined) {
+      console.log(
+        ownerAccount.didAddress +
+          " Not found in txt record. Adding to txt record..."
+      );
+      common.blockchainClient.setTxtRecord(
+        "did:ethr:" + ownerAccount.didAddress,
+        ownerAccount.firstName + " " + ownerAccount.lastName
+      );
+    }
+
+    // Check if notary is in mypass.eth txt record
+    let notarytxtRecord = await common.blockchainClient.getTxtRecord(
+      "did:ethr:" + notaryAccount.didAddress
+    );
+
+    if (notarytxtRecord === "" || notarytxtRecord === undefined) {
+      console.log(
+        notaryAccount.didAddress +
+          " Not found in txt record. Adding to txt record..."
+      );
+      common.blockchainClient.setTxtRecord(
+        "did:ethr:" + notaryAccount.didAddress,
+        notaryAccount.firstName + " " + notaryAccount.lastName
+      );
+    }
+
+    res.status(200).json({
+      vc: notarizedVCJwt,
+      verifiedVC: verifiedVC,
+      document: document.toPublicInfo(),
+      didStatus: "https://etherscan.io/address/" + did.address,
+    });
+  },
 };
