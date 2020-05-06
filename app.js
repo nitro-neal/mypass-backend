@@ -54,7 +54,10 @@ app.use(bodyParser.json());
 app.use(fileUpload({ useTempFiles: true }));
 
 // Using NGIX cors config if production
-if (process.env.ENVIRONMENT === "DEVELOPMENT") {
+if (
+  process.env.ENVIRONMENT === "DEVELOPMENT" ||
+  process.env.ENVIRONMENT === "HEROKU"
+) {
   app.use(cors());
 }
 

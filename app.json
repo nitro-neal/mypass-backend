@@ -5,8 +5,12 @@
   "addons": ["mongolab"],
   "env": {
     "FILE_SAFE_KEY": {
-      "description": "secret used to encrypt documents",
+      "description": "Secret used to encrypt documents",
       "generator": "secret"
+    },
+    "ENVIRONMENT": {
+      "description": "Current environmnet",
+      "value": "HEROKU"
     }
   },
   "logo": "https://cdn.rawgit.com/heroku/node-js-getting-started/master/public/node.svg",

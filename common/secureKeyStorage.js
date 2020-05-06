@@ -2,7 +2,10 @@ const { FileSafe } = require("./FileSafe");
 let vault;
 let safe;
 
-if (process.env.ENVIRONMENT === "DEVELOPMENT") {
+if (
+  process.env.ENVIRONMENT === "DEVELOPMENT" ||
+  process.env.ENVIRONMENT === "HEROKU"
+) {
   safe = new FileSafe("safe.dat", process.env.FILE_SAFE_KEY);
   try {
     safe.decrypt();
@@ -42,7 +45,10 @@ if (process.env.ENVIRONMENT === "DEVELOPMENT") {
 
 module.exports = {
   store: async (guid, key) => {
-    if (process.env.ENVIRONMENT === "DEVELOPMENT") {
+    if (
+      process.env.ENVIRONMENT === "DEVELOPMENT" ||
+      process.env.ENVIRONMENT === "HEROKU"
+    ) {
       let data = safe.decrypt();
       data[guid] = key;
       safe.encrypt(data);
@@ -51,7 +57,10 @@ module.exports = {
     }
   },
   retrieve: async (guid) => {
-    if (process.env.ENVIRONMENT === "DEVELOPMENT") {
+    if (
+      process.env.ENVIRONMENT === "DEVELOPMENT" ||
+      process.env.ENVIRONMENT === "HEROKU"
+    ) {
       let data = safe.decrypt();
       return data[guid];
     } else {
