@@ -2,6 +2,12 @@
   "name": "Start on Heroku: Node.js",
   "description": "A barebones Node.js app using Express 4",
   "repository": "https://github.com/nitro-neal/mypass-backend",
+  "addons": ["mongolab:sandbox"],
+  "env": {
+    "FILE_SAFE_KEY": {
+      "description": "secret used to encrypt documents",
+      "generator": "secret"
+    },
   "logo": "https://cdn.rawgit.com/heroku/node-js-getting-started/master/public/node.svg",
   "keywords": ["node", "express", "heroku"],
   "image": "heroku/nodejs"
