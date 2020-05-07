@@ -5,6 +5,7 @@ const secureKeyStorage = require("../../common/secureKeyStorage");
 const Account = require("./models/Account");
 const Document = require("./models/Document");
 const DocumentType = require("./models/DocumentType");
+const Key = require("./models/Key");
 const Role = require("./models/Role");
 const Permission = require("./models/Permission");
 const ShareRequest = require("./models/ShareRequest");
@@ -226,7 +227,21 @@ class MongoDbClient {
   getCachedRolePermissionsTable() {
     return this.cachedRolePermissionTable;
   }
+  // Keys
+  async store(guid, key) {
+    const keyEntity = new Key();
+    keyEntity.uuid = guid;
+    keyEntity.encryptedKey = key;
+    await keyEntity.save();
+    return keyEntity;
+  }
+  async retrieve(guid) {
+    let key = await Key.findOne({
+      uuid: guid,
+    });
 
+    return key;
+  }
   // Accounts
   async getAccountById(id) {
     const account = await Account.findById(id);
