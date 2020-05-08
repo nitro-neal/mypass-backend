@@ -1,10 +1,10 @@
 const { FileSafe } = require("./FileSafe");
 const common = require("../common/common");
+const Crypto = require("crypto");
 let vault;
 let safe;
 
 if (process.env.ENVIRONMENT === "HEROKU") {
-  // No setup is needed
 } else if (process.env.ENVIRONMENT === "DEVELOPMENT") {
   safe = new FileSafe("safe.dat", process.env.FILE_SAFE_KEY);
   try {
@@ -46,8 +46,14 @@ if (process.env.ENVIRONMENT === "HEROKU") {
 module.exports = {
   store: async (guid, key) => {
     if (process.env.ENVIRONMENT === "HEROKU") {
-      // Todo add encrytpion
-      await common.dbClient.store(guid, key);
+      let cipher = Crypto.createCipher(
+        "aes-256-cbc",
+        process.env.FILE_SAFE_KEY
+      );
+      let encryptedKey = cipher.update(key, "utf8", "hex");
+      encryptedKey += cipher.final("hex");
+
+      await common.dbClient.store(guid, encryptedKey);
     } else if (process.env.ENVIRONMENT === "DEVELOPMENT") {
       let data = safe.decrypt();
       data[guid] = key;
@@ -58,9 +64,17 @@ module.exports = {
   },
   retrieve: async (guid) => {
     if (process.env.ENVIRONMENT === "HEROKU") {
-      // todo: add decryption
       const keyObj = await common.dbClient.retrieve(guid);
-      return keyObj.encryptedKey;
+
+      let decipher = Crypto.createDecipher(
+        "aes-256-cbc",
+        process.env.FILE_SAFE_KEY
+      );
+
+      let decryptedKey = decipher.update(keyObj.encryptedKey, "hex", "utf8");
+      decryptedKey += decipher.final("utf8");
+
+      return decryptedKey;
     } else if (
       process.env.ENVIRONMENT === "DEVELOPMENT" ||
       process.env.ENVIRONMENT === "HEROKU"

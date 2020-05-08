@@ -3,9 +3,14 @@
   "description": "MyPass Quickstart",
   "repository": "https://github.com/nitro-neal/mypass-backend",
   "addons": ["mongolab"],
+
   "env": {
     "FILE_SAFE_KEY": {
       "description": "Secret used to encrypt documents",
+      "generator": "secret"
+    },
+    "AUTH_SECRET": {
+      "description": "Secret used to encrypt sessions",
       "generator": "secret"
     },
     "ENVIRONMENT": {

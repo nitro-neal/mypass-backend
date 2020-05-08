@@ -41,6 +41,51 @@ class MongoDbClient {
     const accounts = await this.getAllAccounts();
     const documentTypes = await this.getAllDocumentTypes();
 
+    const adminAccount = accounts.find(({ username }) => username === "admin");
+    if (
+      process.env.ADMIN_PASSWORD !== undefined &&
+      adminAccount === undefined
+    ) {
+      console.log("\nAdmin account is empty. Populating admin account...");
+
+      // Admin
+      let adminAccount = {
+        account: {
+          username: "admin",
+          firstname: "admin",
+          lastname: "admin",
+          password: process.env.ADMIN_PASSWORD,
+          role: "admin",
+          email: "admin@admin.com",
+          phonenumber: "555-555-5555",
+          organization: "-",
+        },
+      };
+      let adminDid = {
+        did: {
+          address: "0xD19834a92604Fe21A8E5631F755aEC7d63Cb4b1c",
+          publicEncryptionKey: EthCrypto.publicKeyByPrivateKey(
+            "0x" +
+              "0daf9bae0e6f9069e012973daf82c404d373b5da8a6cbaa590133faf8be2d017"
+          ),
+          privateKey:
+            "0daf9bae0e6f9069e012973daf82c404d373b5da8a6cbaa590133faf8be2d017",
+          privateKeyGuid: "1d9ac500-ba5d-4c80-ae9a-45a3098e19ea",
+        },
+      };
+
+      await secureKeyStorage.store(
+        adminDid.did.privateKeyGuid,
+        adminDid.did.privateKey
+      );
+
+      this.createAccount(
+        adminAccount.account,
+        adminDid.did,
+        "06fy-0000",
+        "goku.png"
+      );
+    }
     if (accounts.length === 0) {
       console.log("\nAccounts are empty. Populating default values...");
 
@@ -292,6 +337,11 @@ class MongoDbClient {
     account.profileImageUrl = profileImageUrl;
     await account.save();
     return account;
+  }
+
+  async getAdminData() {
+    // TODO: Implement admin tables
+    return "All The Admin Info";
   }
 
   async getShareRequests(accountId) {

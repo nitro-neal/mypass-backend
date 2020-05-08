@@ -1,19 +1,13 @@
 // Load .env files
 require("dotenv").config();
+var Util = require("./common/Util");
 
 // Loading from admin page
-if (process.env.AUTH_SECRET === undefined) {
+if (process.env.ENVIRONMENT === "HEROKU" && !Util.hasAllRequiredKeys()) {
   const express = require("express");
   const app = express();
-  const path = require("path");
 
-  // TODO: Change compiled env variable to prod
   app.use(express.static(__dirname + "/public-admin"));
-  // app.use(express.static(__dirname + "/public"));
-
-  // app.get("/frontend", function (req, res) {
-  //   res.sendFile(path.join(__dirname + "/public"));
-  // });
 
   const server = app.listen(process.env.PORT || 5000, function () {
     console.log("Listening on port " + server.address().port);
@@ -22,10 +16,8 @@ if (process.env.AUTH_SECRET === undefined) {
 }
 
 const MongoDbClient = require("./database/mongodb/MongoDbClient");
-// const UportClient = require("./services/blockchain/UportClient");
 const express = require("express");
 const bodyParser = require("body-parser");
-// const session = require("express-session");
 const cors = require("cors");
 const router = require("./routes");
 const common = require("./common/common");
@@ -61,18 +53,7 @@ if (
   app.use(cors());
 }
 
-// app.use(cors());
-
-// app.use(
-//   session({
-//     secret: process.env.SESSION_SECRET,
-//     cookie: { maxAge: 60000 },
-//     resave: false,
-//     saveUninitialized: false,
-//   })
-// );
 app.use(errors());
-
 app.use(router);
 
 // error handler
